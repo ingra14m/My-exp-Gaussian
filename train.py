@@ -91,6 +91,10 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations):
         else:
             mlp_color = 0
 
+        # dir_pp = (gaussians.get_xyz - viewpoint_cam.camera_center.repeat(gaussians.get_features.shape[0], 1))
+        # dir_pp_normalized = dir_pp / dir_pp.norm(dim=1, keepdim=True)
+        # mlp_color = specular_mlp.step(gaussians.get_xyz.detach(), dir_pp_normalized)
+
         render_pkg_re = render(viewpoint_cam, gaussians, pipe, background, mlp_color)
         image, viewspace_point_tensor, visibility_filter, radii = render_pkg_re["render"], render_pkg_re[
             "viewspace_points"], render_pkg_re["visibility_filter"], render_pkg_re["radii"]
