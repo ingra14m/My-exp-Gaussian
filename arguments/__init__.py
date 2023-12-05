@@ -50,6 +50,7 @@ class ParamGroup:
 class ModelParams(ParamGroup):
     def __init__(self, parser, sentinel=False):
         self.sh_degree = 3
+        self.asg_degree = 24
         self._source_path = ""
         self._model_path = ""
         self._images = "images"
@@ -76,12 +77,12 @@ class PipelineParams(ParamGroup):
 
 class OptimizationParams(ParamGroup):
     def __init__(self, parser):
-        self.iterations = 40_000
+        self.iterations = 30_000
         self.position_lr_init = 0.00016
         self.position_lr_final = 0.0000016
         self.position_lr_delay_mult = 0.01
         self.position_lr_max_steps = 30_000
-        self.specular_lr_max_steps = 40_000
+        self.specular_lr_max_steps = 30_000
         self.feature_lr = 0.0025
         self.opacity_lr = 0.05
         self.scaling_lr = 0.001

@@ -40,7 +40,7 @@ def render_set(model_path, load2gpt_on_the_fly, name, iteration, views, gaussian
     for idx, view in enumerate(tqdm(views, desc="Rendering progress")):
         dir_pp = (gaussians.get_xyz - view.camera_center.repeat(gaussians.get_features.shape[0], 1))
         dir_pp_normalized = dir_pp / dir_pp.norm(dim=1, keepdim=True)
-        mlp_color = specular.step(gaussians.get_xyz.detach(), dir_pp_normalized)
+        mlp_color = specular.step(gaussians.get_asg_features, dir_pp_normalized)
         results = render(view, gaussians, pipeline, background, mlp_color)
         rendering = results["render"]
         depth = results["depth"]
@@ -55,7 +55,7 @@ def render_set(model_path, load2gpt_on_the_fly, name, iteration, views, gaussian
 def render_sets(dataset: ModelParams, iteration: int, pipeline: PipelineParams, skip_train: bool, skip_test: bool,
                 mode: str):
     with torch.no_grad():
-        gaussians = GaussianModel(dataset.sh_degree)
+        gaussians = GaussianModel(dataset.sh_degree, dataset.asg_degree)
         scene = Scene(dataset, gaussians, load_iteration=iteration, shuffle=False)
         specular = SpecularModel()
         specular.load_weights(dataset.model_path)

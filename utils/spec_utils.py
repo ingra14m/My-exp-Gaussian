@@ -81,7 +81,7 @@ class RenderingEquationEncoding(torch.nn.Module):
 
         la = F.softplus(la - 1)
         mu = F.softplus(mu - 1)
-        exp_input = -la * (self.omega_la * omega_o[:, None, None]).sum(dim=-1, keepdim=True).pow(2) -mu * (self.omega_mu * omega_o[:, None, None]).sum(dim=-1, keepdim=True).pow(2)
+        exp_input = -la * (self.omega_la * omega_o[:, None, None]).sum(dim=-1, keepdim=True).pow(2) - mu * (self.omega_mu * omega_o[:, None, None]).sum(dim=-1, keepdim=True).pow(2)
         out = a * Smooth * torch.exp(exp_input)
 
         return out
@@ -119,13 +119,13 @@ class ASGRender(torch.nn.Module):
             indata += [positional_encoding(viewdirs, self.viewpe)]
         mlp_in = torch.cat(indata, dim=-1)
         rgb = self.mlp(mlp_in)
-        rgb = torch.sigmoid(rgb)
+        # rgb = torch.sigmoid(rgb)
 
         return rgb
 
 
 class SpecularNetwork(nn.Module):
-    def __init__(self, D=4, W=128, input_ch=3, output_ch=59, view_multires=4, multires=10):
+    def __init__(self, D=4, W=128, input_ch=3, output_ch=59, view_multires=4, multires=4):
         super(SpecularNetwork, self).__init__()
         self.D = D
         self.W = W
@@ -133,33 +133,35 @@ class SpecularNetwork(nn.Module):
         self.output_ch = output_ch
         self.view_multires = view_multires
         self.skips = [D // 2]
-
-        self.embed_view_fn, view_input_ch = get_embedder(view_multires, 3)
-        self.embed_fn, xyz_input_ch = get_embedder(multires, 3)
-        self.input_ch = xyz_input_ch + view_input_ch
         
-        self.linear = nn.ModuleList(
-            [nn.Linear(self.input_ch, W)] + [
-                nn.Linear(W, W) if i not in self.skips else nn.Linear(W + self.input_ch, W)
-                for i in range(D - 1)]
-        )
+        self.asg_feature = 24
 
-        self.gaussian_feature = nn.Linear(W, 512)
+        # self.embed_view_fn, view_input_ch = get_embedder(view_multires, 3)
+        # self.embed_fn, xyz_input_ch = get_embedder(multires, self.asg_feature)
+        # self.input_ch = xyz_input_ch
+        
+        # self.linear = nn.ModuleList(
+        #     [nn.Linear(self.input_ch, W)] + [
+        #         nn.Linear(W, W) if i not in self.skips else nn.Linear(W + self.input_ch, W)
+        #         for i in range(D - 1)]
+        # )
+
+        self.gaussian_feature = nn.Linear(self.asg_feature, 512)
         
         self.render_module = ASGRender(512, 2, 2, 128)
 
     def forward(self, x, view):
-        v_emb = self.embed_view_fn(view)
-        x_emb = self.embed_fn(x)
+        # v_emb = self.embed_view_fn(view)
+        # x_emb = self.embed_fn(x)
         # h = torch.cat([x_emb, v_emb], dim=-1)
-        h = x_emb
-        for i, l in enumerate(self.linear):
-            h = self.linear[i](h)
-            h = F.relu(h)
-            if i in self.skips:
-                h = torch.cat([x_emb, h], -1)
+        # h = x
+        # for i, l in enumerate(self.linear):
+        #     h = self.linear[i](h)
+        #     h = F.relu(h)
+        #     if i in self.skips:
+        #         h = torch.cat([x_emb, h], -1)
 
-        feature = self.gaussian_feature(h)
+        feature = self.gaussian_feature(x)
 
         spec = self.render_module(x, view, feature)
 
