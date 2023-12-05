@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from utils.rigid_utils import exp_se3
 from utils.quaternion_utils import init_predefined_omega
+from utils.ref_utils import generate_ide_fn
 
 
 def get_embedder(multires, i=1):
@@ -90,12 +91,10 @@ class ASGRender(torch.nn.Module):
     def __init__(self,inChanel, viewpe=6, feape=6, featureC=128):
         super(ASGRender, self).__init__()
 
-        self.in_mlpC = 2*viewpe*3 + 3 + 256
+        self.num_theta = 4
+        self.num_phi = 8
+        self.in_mlpC = 2 * viewpe * 3 + 3 + self.num_theta * self.num_phi * 2
         self.viewpe = viewpe
-        self.feape = feape
-
-        self.num_theta = 8
-        self.num_phi = 16
         self.ree_function = RenderingEquationEncoding(self.num_theta, self.num_phi, 'cuda')
 
         layer1 = torch.nn.Linear(self.in_mlpC, featureC)
@@ -110,15 +109,15 @@ class ASGRender(torch.nn.Module):
         a, la, mu = torch.split(asg_params, [2, 1, 1], dim=-1)
 
         color_feature = self.ree_function(viewdirs, a, la, mu)
+        # color_feature = color_feature.view(color_feature.size(0), -1, 3)
         color_feature = color_feature.view(color_feature.size(0), -1)  # [N, 256]
 
         indata = [color_feature, viewdirs]
-        # if self.feape > 0:
-        #     indata += [positional_encoding(color_feature, self.feape)]
         if self.viewpe > 0:
             indata += [positional_encoding(viewdirs, self.viewpe)]
         mlp_in = torch.cat(indata, dim=-1)
         rgb = self.mlp(mlp_in)
+        # rgb = torch.sum(color_feature, dim=1)
         # rgb = torch.sigmoid(rgb)
 
         return rgb
@@ -135,6 +134,12 @@ class SpecularNetwork(nn.Module):
         self.skips = [D // 2]
         
         self.asg_feature = 24
+        self.num_theta = 4
+        self.num_phi = 8
+        # self.asg_hidden = self.num_theta * self.num_phi * 5
+        self.asg_hidden = self.num_theta * self.num_phi * 4
+
+        self.ide_enc = generate_ide_fn(5)
 
         # self.embed_view_fn, view_input_ch = get_embedder(view_multires, 3)
         # self.embed_fn, xyz_input_ch = get_embedder(multires, self.asg_feature)
@@ -146,9 +151,9 @@ class SpecularNetwork(nn.Module):
         #         for i in range(D - 1)]
         # )
 
-        self.gaussian_feature = nn.Linear(self.asg_feature, 512)
+        self.gaussian_feature = nn.Linear(self.asg_feature, self.asg_hidden)
         
-        self.render_module = ASGRender(512, 2, 2, 128)
+        self.render_module = ASGRender(self.asg_hidden, 2, 2, 128)
 
     def forward(self, x, view):
         # v_emb = self.embed_view_fn(view)
