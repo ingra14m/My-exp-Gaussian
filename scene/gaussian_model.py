@@ -11,7 +11,7 @@
 
 import torch
 import numpy as np
-from utils.general_utils import inverse_sigmoid, get_expon_lr_func, build_rotation
+from utils.general_utils import inverse_sigmoid, get_expon_lr_func, build_rotation, get_linear_noise_func
 from torch import nn
 import os
 from utils.system_utils import mkdir_p
@@ -140,6 +140,10 @@ class GaussianModel:
                                                     lr_final=training_args.position_lr_final * self.spatial_lr_scale,
                                                     lr_delay_mult=training_args.position_lr_delay_mult,
                                                     max_steps=training_args.position_lr_max_steps)
+        self.asg_scheduler_args = get_linear_noise_func(lr_init=training_args.feature_lr,
+                                                        lr_final=training_args.feature_lr / 20.0,
+                                                        lr_delay_mult=training_args.position_lr_delay_mult,
+                                                        max_steps=training_args.position_lr_max_steps)
 
     def update_learning_rate(self, iteration):
         ''' Learning rate scheduling per step '''
@@ -148,6 +152,11 @@ class GaussianModel:
                 lr = self.xyz_scheduler_args(iteration)
                 param_group['lr'] = lr
                 return lr
+            if param_group["name"] == "f_asg":
+                lr = self.asg_scheduler_args(iteration)
+                param_group['lr'] = lr
+                return lr
+
 
     def construct_list_of_attributes(self):
         l = ['x', 'y', 'z', 'nx', 'ny', 'nz']
