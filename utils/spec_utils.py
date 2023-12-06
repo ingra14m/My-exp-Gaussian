@@ -3,7 +3,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from utils.rigid_utils import exp_se3
 from utils.quaternion_utils import init_predefined_omega
-from utils.ref_utils import generate_ide_fn
 
 
 def get_embedder(multires, i=1):
@@ -138,8 +137,6 @@ class SpecularNetwork(nn.Module):
         self.num_phi = 8
         # self.asg_hidden = self.num_theta * self.num_phi * 5
         self.asg_hidden = self.num_theta * self.num_phi * 4
-
-        self.ide_enc = generate_ide_fn(5)
 
         # self.embed_view_fn, view_input_ch = get_embedder(view_multires, 3)
         # self.embed_fn, xyz_input_ch = get_embedder(multires, self.asg_feature)
