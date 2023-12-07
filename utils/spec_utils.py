@@ -123,7 +123,7 @@ class ASGRender(torch.nn.Module):
 
         normal_dot_viewdir = ((-viewdirs) * normal).sum(dim=-1, keepdim=True)  # [N, 1]
         indata = [color_feature, normal_dot_viewdir]
-        if self.view_pe > -1:
+        if self.viewpe > -1:
             indata += [viewdirs]
         if self.viewpe > 0:
             indata += [positional_encoding(viewdirs, self.viewpe)]
