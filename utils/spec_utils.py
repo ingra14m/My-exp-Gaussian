@@ -152,7 +152,14 @@ class SpecularNetwork(nn.Module):
         
         self.render_module = ASGRender(self.asg_hidden, 2, 2, 128)
 
-    def forward(self, x, view):
+    def reflect(self, viewdir, normal):
+        out = 2 * (viewdir * normal).sum(dim=-1, keepdim=True) * normal - viewdir
+        return out
+    
+    def safe_normalize(self, x, eps=1e-8):
+        return x / (torch.norm(x, dim=-1, keepdim=True) + eps)
+
+    def forward(self, x, view, normal):
         # v_emb = self.embed_view_fn(view)
         # x_emb = self.embed_fn(x)
         # h = torch.cat([x_emb, v_emb], dim=-1)
@@ -162,9 +169,9 @@ class SpecularNetwork(nn.Module):
         #     h = F.relu(h)
         #     if i in self.skips:
         #         h = torch.cat([x_emb, h], -1)
-
+        
         feature = self.gaussian_feature(x)
-
+        # reflect_dir = self.safe_normalize(self.reflect(-view, normal))
         spec = self.render_module(x, view, feature)
 
         return spec

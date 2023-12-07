@@ -29,7 +29,7 @@ def quaternion_multiply(q1, q2):
     return torch.stack((w, x, y, z), dim=-1)
 
 
-def render(viewpoint_camera, pc: GaussianModel, pipe, bg_color: torch.Tensor, mlp_color,
+def render(viewpoint_camera, pc: GaussianModel, pipe, bg_color: torch.Tensor, mlp_color, hybrid=True,
            scaling_modifier=1.0, override_color=None):
     """
     Render the scene. 
@@ -91,14 +91,15 @@ def render(viewpoint_camera, pc: GaussianModel, pipe, bg_color: torch.Tensor, ml
     colors_precomp = None
     # colors_precomp = mlp_color
     if colors_precomp is None:
-        if True:
+        if hybrid:
             shs_view = pc.get_features.transpose(1, 2).view(-1, 3, (pc.max_sh_degree + 1) ** 2)
             dir_pp = (pc.get_xyz - viewpoint_camera.camera_center.repeat(pc.get_features.shape[0], 1))
             dir_pp_normalized = dir_pp / dir_pp.norm(dim=1, keepdim=True)
             sh2rgb = eval_sh(pc.active_sh_degree, shs_view, dir_pp_normalized)
             colors_precomp = torch.clamp_min(sh2rgb + 0.5, 0.0) + mlp_color
         else:
-            shs = pc.get_features
+            # shs = pc.get_features
+            colors_precomp = mlp_color
     else:
         colors_precomp = override_color
 

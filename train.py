@@ -87,7 +87,8 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations):
         if iteration > 3000:
             dir_pp = (gaussians.get_xyz - viewpoint_cam.camera_center.repeat(gaussians.get_features.shape[0], 1))
             dir_pp_normalized = dir_pp / dir_pp.norm(dim=1, keepdim=True)
-            mlp_color = specular_mlp.step(gaussians.get_asg_features, dir_pp_normalized)
+            normal, normal_delta = gaussians.get_normal(dir_pp_normalized=dir_pp_normalized, return_delta=True)
+            mlp_color = specular_mlp.step(gaussians.get_asg_features, dir_pp_normalized, normal)
         else:
             mlp_color = 0
 
@@ -211,7 +212,8 @@ def training_report(tb_writer, iteration, Ll1, loss, l1_loss, elapsed, testing_i
                     dir_pp = (scene.gaussians.get_xyz - viewpoint.camera_center.repeat(
                         scene.gaussians.get_features.shape[0], 1))
                     dir_pp_normalized = dir_pp / dir_pp.norm(dim=1, keepdim=True)
-                    mlp_color = specular_mlp.step(scene.gaussians.get_asg_features, dir_pp_normalized)
+                    normal, normal_delta = scene.gaussians.get_normal(dir_pp_normalized=dir_pp_normalized, return_delta=True)
+                    mlp_color = specular_mlp.step(scene.gaussians.get_asg_features, dir_pp_normalized, normal)
                     image = torch.clamp(
                         renderFunc(viewpoint, scene.gaussians, *renderArgs, mlp_color)["render"],
                         0.0, 1.0)
