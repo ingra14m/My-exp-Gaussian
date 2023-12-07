@@ -56,14 +56,15 @@ class Embedder:
     def embed(self, inputs):
         return torch.cat([fn(inputs) for fn in self.embed_fns], -1)
 
+
 def positional_encoding(positions, freqs):
-    
-        freq_bands = (2**torch.arange(freqs).float()).to(positions.device)  # (F,)
-        pts = (positions[..., None] * freq_bands).reshape(
-            positions.shape[:-1] + (freqs * positions.shape[-1], ))  # (..., DF)
-        pts = torch.cat([torch.sin(pts), torch.cos(pts)], dim=-1)
-        return pts
-    
+    freq_bands = (2 ** torch.arange(freqs).float()).to(positions.device)  # (F,)
+    pts = (positions[..., None] * freq_bands).reshape(
+        positions.shape[:-1] + (freqs * positions.shape[-1],))  # (..., DF)
+    pts = torch.cat([torch.sin(pts), torch.cos(pts)], dim=-1)
+    return pts
+
+
 class RenderingEquationEncoding(torch.nn.Module):
     def __init__(self, num_theta, num_phi, device):
         super(RenderingEquationEncoding, self).__init__()
@@ -77,17 +78,19 @@ class RenderingEquationEncoding(torch.nn.Module):
         self.omega_mu = omega_mu.view(1, num_theta, num_phi, 3).to(device)
 
     def forward(self, omega_o, a, la, mu):
-        Smooth = F.relu((omega_o[:, None, None] * self.omega).sum(dim=-1, keepdim=True)) # N, num_theta, num_phi, 1
+        Smooth = F.relu((omega_o[:, None, None] * self.omega).sum(dim=-1, keepdim=True))  # N, num_theta, num_phi, 1
 
         la = F.softplus(la - 1)
         mu = F.softplus(mu - 1)
-        exp_input = -la * (self.omega_la * omega_o[:, None, None]).sum(dim=-1, keepdim=True).pow(2) - mu * (self.omega_mu * omega_o[:, None, None]).sum(dim=-1, keepdim=True).pow(2)
+        exp_input = -la * (self.omega_la * omega_o[:, None, None]).sum(dim=-1, keepdim=True).pow(2) - mu * (
+                    self.omega_mu * omega_o[:, None, None]).sum(dim=-1, keepdim=True).pow(2)
         out = a * Smooth * torch.exp(exp_input)
 
         return out
-    
+
+
 class ASGRender(torch.nn.Module):
-    def __init__(self,inChanel, viewpe=6, feape=6, featureC=128):
+    def __init__(self, inChanel, viewpe=6, feape=6, featureC=128):
         super(ASGRender, self).__init__()
 
         self.num_theta = 4
@@ -99,7 +102,7 @@ class ASGRender(torch.nn.Module):
 
         layer1 = torch.nn.Linear(self.in_mlpC, featureC)
         layer2 = torch.nn.Linear(featureC, featureC)
-        layer3 = torch.nn.Linear(featureC,3)
+        layer3 = torch.nn.Linear(featureC, 3)
 
         self.mlp = torch.nn.Sequential(layer1, torch.nn.ReLU(inplace=True), layer2, torch.nn.ReLU(inplace=True), layer3)
         torch.nn.init.constant_(self.mlp[-1].bias, 0)
@@ -107,7 +110,7 @@ class ASGRender(torch.nn.Module):
     def reflect(self, viewdir, normal):
         out = 2 * (viewdir * normal).sum(dim=-1, keepdim=True) * normal - viewdir
         return out
-    
+
     def safe_normalize(self, x, eps=1e-8):
         return x / (torch.norm(x, dim=-1, keepdim=True) + eps)
 
@@ -144,7 +147,7 @@ class SpecularNetwork(nn.Module):
         self.output_ch = output_ch
         self.view_multires = view_multires
         self.skips = [D // 2]
-        
+
         self.asg_feature = 24
         self.num_theta = 4
         self.num_phi = 8
@@ -154,7 +157,7 @@ class SpecularNetwork(nn.Module):
         # self.embed_view_fn, view_input_ch = get_embedder(view_multires, 3)
         # self.embed_fn, xyz_input_ch = get_embedder(multires, self.asg_feature)
         # self.input_ch = xyz_input_ch
-        
+
         # self.linear = nn.ModuleList(
         #     [nn.Linear(self.input_ch, W)] + [
         #         nn.Linear(W, W) if i not in self.skips else nn.Linear(W + self.input_ch, W)
@@ -162,7 +165,7 @@ class SpecularNetwork(nn.Module):
         # )
 
         self.gaussian_feature = nn.Linear(self.asg_feature, self.asg_hidden)
-        
+
         self.render_module = ASGRender(self.asg_hidden, 2, 2, 128)
 
     def forward(self, x, view, normal):
@@ -175,7 +178,7 @@ class SpecularNetwork(nn.Module):
         #     h = F.relu(h)
         #     if i in self.skips:
         #         h = torch.cat([x_emb, h], -1)
-        
+
         feature = self.gaussian_feature(x)
         spec = self.render_module(x, view, feature, normal)
 

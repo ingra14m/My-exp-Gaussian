@@ -62,7 +62,7 @@ class GaussianModel:
     @property
     def get_asg_features(self):
         return self._features_asg
-    
+
     @property
     def get_scaling(self):
         return self.scaling_activation(self._scaling)
@@ -92,17 +92,17 @@ class GaussianModel:
         normal_axis = self.get_minimum_axis
         normal_axis, positive = flip_align_view(normal_axis, dir_pp_normalized)
         delta_normal1 = self._normal  # (N, 3) 
-        delta_normal2 = self._normal2 # (N, 3) 
-        delta_normal = torch.stack([delta_normal1, delta_normal2], dim=-1) # (N, 3, 2)
-        idx = torch.where(positive, 0, 1).long()[:,None,:].repeat(1, 3, 1) # (N, 3, 1)
-        delta_normal = torch.gather(delta_normal, index=idx, dim=-1).squeeze(-1) # (N, 3)
-        normal = delta_normal + normal_axis 
-        normal = normal / normal.norm(dim=1, keepdim=True) # (N, 3)
+        delta_normal2 = self._normal2  # (N, 3)
+        delta_normal = torch.stack([delta_normal1, delta_normal2], dim=-1)  # (N, 3, 2)
+        idx = torch.where(positive, 0, 1).long()[:, None, :].repeat(1, 3, 1)  # (N, 3, 1)
+        delta_normal = torch.gather(delta_normal, index=idx, dim=-1).squeeze(-1)  # (N, 3)
+        normal = delta_normal + normal_axis
+        normal = normal / normal.norm(dim=1, keepdim=True)  # (N, 3)
         if return_delta:
             return normal, delta_normal
         else:
             return normal
-        
+
     @property
     def get_minimum_axis(self):
         return get_minimum_axis(self.get_scaling, self.get_rotation)
@@ -178,9 +178,9 @@ class GaussianModel:
                                                         lr_delay_mult=training_args.position_lr_delay_mult,
                                                         max_steps=training_args.position_lr_max_steps)
         self.normal_scheduler_args = get_expon_lr_func(lr_init=5e-4,
-                                                        lr_final=5e-6,
-                                                        lr_delay_mult=training_args.position_lr_delay_mult,
-                                                        max_steps=training_args.position_lr_max_steps)
+                                                       lr_final=5e-6,
+                                                       lr_delay_mult=training_args.position_lr_delay_mult,
+                                                       max_steps=training_args.position_lr_max_steps)
 
     def update_learning_rate(self, iteration):
         ''' Learning rate scheduling per step '''
@@ -192,11 +192,10 @@ class GaussianModel:
             # if param_group["name"] == "f_asg":
             #     lr = self.asg_scheduler_args(iteration)
             #     param_group['lr'] = lr
-                # return lr
+            # return lr
             if param_group["name"] == "normal":
                 lr = self.normal_scheduler_args(iteration)
                 param_group['lr'] = lr
-
 
     def construct_list_of_attributes(self):
         l = ['x', 'y', 'z', 'nx', 'ny', 'nz']
@@ -278,7 +277,7 @@ class GaussianModel:
         f_asgs = np.zeros((xyz.shape[0], len(asg_names)))
         for idx, attr_name in enumerate(asg_names):
             f_asgs[:, idx] = np.asarray(plydata.elements[0][attr_name])
-        
+
         # normal_names = [p.name for p in plydata.elements[0].properties if p.name.startswith("normal_")]
         # normal = np.zeros((xyz.shape[0], len(normal_names)))
         # for idx, attr_name in enumerate(normal_names):
@@ -290,11 +289,11 @@ class GaussianModel:
         #     normal2[:, idx] = np.asarray(plydata.elements[0][attr_name])
 
         normal = np.stack((np.asarray(plydata.elements[0]["nx"]),
-                            np.asarray(plydata.elements[0]["ny"]),
-                            np.asarray(plydata.elements[0]["nz"])),  axis=1)
+                           np.asarray(plydata.elements[0]["ny"]),
+                           np.asarray(plydata.elements[0]["nz"])), axis=1)
         normal2 = np.stack((np.asarray(plydata.elements[0]["nx2"]),
-                        np.asarray(plydata.elements[0]["ny2"]),
-                        np.asarray(plydata.elements[0]["nz2"])),  axis=1)
+                            np.asarray(plydata.elements[0]["ny2"]),
+                            np.asarray(plydata.elements[0]["nz2"])), axis=1)
 
         self._xyz = nn.Parameter(torch.tensor(xyz, dtype=torch.float, device="cuda").requires_grad_(True))
         self._features_dc = nn.Parameter(
@@ -398,8 +397,8 @@ class GaussianModel:
              "scaling": new_scaling,
              "rotation": new_rotation,
              "f_asg": new_feature_asg,
-             "normal" : new_normal,
-             "normal2" : new_normal2}
+             "normal": new_normal,
+             "normal2": new_normal2}
 
         optimizable_tensors = self.cat_tensors_to_optimizer(d)
         self._xyz = optimizable_tensors["xyz"]
@@ -440,7 +439,8 @@ class GaussianModel:
         new_normal = self._normal[selected_pts_mask].repeat(N, 1)
         new_normal2 = self._normal2[selected_pts_mask].repeat(N, 1)
 
-        self.densification_postfix(new_xyz, new_features_dc, new_features_rest, new_opacity, new_scaling, new_rotation, new_feature_asg, new_normal, new_normal2)
+        self.densification_postfix(new_xyz, new_features_dc, new_features_rest, new_opacity, new_scaling, new_rotation,
+                                   new_feature_asg, new_normal, new_normal2)
 
         prune_filter = torch.cat(
             (selected_pts_mask, torch.zeros(N * selected_pts_mask.sum(), device="cuda", dtype=bool)))
