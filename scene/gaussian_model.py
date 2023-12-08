@@ -46,6 +46,7 @@ class GaussianModel:
         self._features_asg = torch.empty(0)
         self._normal = torch.empty(0)
         self._normal2 = torch.empty(0)
+        self._roughness = torch.empty(0)
 
         self.optimizer = None
 
@@ -62,6 +63,10 @@ class GaussianModel:
     @property
     def get_asg_features(self):
         return self._features_asg
+
+    @property
+    def get_roughness(self):
+        return self._roughness
 
     @property
     def get_scaling(self):
@@ -119,6 +124,7 @@ class GaussianModel:
         features[:, :3, 0] = fused_color
         features[:, 3:, 1:] = 0.0
         asg_features = torch.zeros((fused_color.shape[0], self.max_asg_degree)).float().cuda()
+        roughness = torch.zeros((fused_color.shape[0], 1)).float().cuda()
 
         print("Number of points at initialisation : ", fused_point_cloud.shape[0])
 
@@ -136,6 +142,7 @@ class GaussianModel:
         self._rotation = nn.Parameter(rots.requires_grad_(True))
         self._opacity = nn.Parameter(opacities.requires_grad_(True))
         self._features_asg = nn.Parameter(asg_features.requires_grad_(True))
+        self._roughness = nn.Parameter(roughness.requires_grad_(True))
         self.max_radii2D = torch.zeros((self.get_xyz.shape[0]), device="cuda")
 
         normals = np.zeros_like(np.asarray(pcd.points, dtype=np.float32))
@@ -158,7 +165,8 @@ class GaussianModel:
             {'params': [self._opacity], 'lr': training_args.opacity_lr, "name": "opacity"},
             {'params': [self._scaling], 'lr': training_args.scaling_lr * self.spatial_lr_scale, "name": "scaling"},
             {'params': [self._rotation], 'lr': training_args.rotation_lr, "name": "rotation"},
-            {'params': [self._features_asg], 'lr': training_args.feature_lr, "name": "f_asg"}
+            {'params': [self._features_asg], 'lr': training_args.feature_lr, "name": "f_asg"},
+            {'params': [self._roughness], 'lr': training_args.feature_lr, "name": "roughness"}
         ]
 
         l.extend([
@@ -212,6 +220,8 @@ class GaussianModel:
             l.append('rot_{}'.format(i))
         for i in range(self._features_asg.shape[1]):
             l.append('f_asg_{}'.format(i))
+        for i in range(self._roughness.shape[1]):
+            l.append('roughness_{}'.format(i))
         return l
 
     def save_ply(self, path):
@@ -227,11 +237,12 @@ class GaussianModel:
         scale = self._scaling.detach().cpu().numpy()
         rotation = self._rotation.detach().cpu().numpy()
         f_asg = self._features_asg.detach().cpu().numpy()
+        roughness = self._roughness.detach().cpu().numpy()
 
         dtype_full = [(attribute, 'f4') for attribute in self.construct_list_of_attributes()]
 
         elements = np.empty(xyz.shape[0], dtype=dtype_full)
-        attributes = np.concatenate((xyz, normals, normals2, f_dc, f_rest, opacities, scale, rotation, f_asg), axis=1)
+        attributes = np.concatenate((xyz, normals, normals2, f_dc, f_rest, opacities, scale, rotation, f_asg, roughness), axis=1)
         elements[:] = list(map(tuple, attributes))
         el = PlyElement.describe(elements, 'vertex')
         PlyData([el]).write(path)
@@ -278,6 +289,11 @@ class GaussianModel:
         for idx, attr_name in enumerate(asg_names):
             f_asgs[:, idx] = np.asarray(plydata.elements[0][attr_name])
 
+        rough_names = [p.name for p in plydata.elements[0].properties if p.name.startswith("roughness_")]
+        roughness = np.zeros((xyz.shape[0], len(rough_names)))
+        for idx, attr_name in enumerate(rough_names):
+            roughness[:, idx] = np.asarray(plydata.elements[0][attr_name])
+
         # normal_names = [p.name for p in plydata.elements[0].properties if p.name.startswith("normal_")]
         # normal = np.zeros((xyz.shape[0], len(normal_names)))
         # for idx, attr_name in enumerate(normal_names):
@@ -306,6 +322,7 @@ class GaussianModel:
         self._scaling = nn.Parameter(torch.tensor(scales, dtype=torch.float, device="cuda").requires_grad_(True))
         self._rotation = nn.Parameter(torch.tensor(rots, dtype=torch.float, device="cuda").requires_grad_(True))
         self._features_asg = nn.Parameter(torch.tensor(f_asgs, dtype=torch.float, device="cuda").requires_grad_(True))
+        self._roughness = nn.Parameter(torch.tensor(roughness, dtype=torch.float, device="cuda").requires_grad_(True))
         self._normal = nn.Parameter(torch.tensor(normal, dtype=torch.float, device="cuda").requires_grad_(True))
         self._normal2 = nn.Parameter(torch.tensor(normal2, dtype=torch.float, device="cuda").requires_grad_(True))
         self.active_sh_degree = self.max_sh_degree
@@ -354,6 +371,7 @@ class GaussianModel:
         self._scaling = optimizable_tensors["scaling"]
         self._rotation = optimizable_tensors["rotation"]
         self._features_asg = optimizable_tensors["f_asg"]
+        self._roughness = optimizable_tensors["roughness"]
         self._normal = optimizable_tensors["normal"]
         self._normal2 = optimizable_tensors["normal2"]
 
@@ -389,7 +407,7 @@ class GaussianModel:
         return optimizable_tensors
 
     def densification_postfix(self, new_xyz, new_features_dc, new_features_rest, new_opacities, new_scaling,
-                              new_rotation, new_feature_asg, new_normal, new_normal2):
+                              new_rotation, new_feature_asg, new_normal, new_normal2, new_roughness):
         d = {"xyz": new_xyz,
              "f_dc": new_features_dc,
              "f_rest": new_features_rest,
@@ -398,7 +416,8 @@ class GaussianModel:
              "rotation": new_rotation,
              "f_asg": new_feature_asg,
              "normal": new_normal,
-             "normal2": new_normal2}
+             "normal2": new_normal2,
+             "roughness": new_roughness}
 
         optimizable_tensors = self.cat_tensors_to_optimizer(d)
         self._xyz = optimizable_tensors["xyz"]
@@ -408,6 +427,7 @@ class GaussianModel:
         self._scaling = optimizable_tensors["scaling"]
         self._rotation = optimizable_tensors["rotation"]
         self._features_asg = optimizable_tensors["f_asg"]
+        self._roughness = optimizable_tensors["roughness"]
         self._normal = optimizable_tensors["normal"]
         self._normal2 = optimizable_tensors["normal2"]
 
@@ -436,11 +456,12 @@ class GaussianModel:
         new_features_rest = self._features_rest[selected_pts_mask].repeat(N, 1, 1)
         new_opacity = self._opacity[selected_pts_mask].repeat(N, 1)
         new_feature_asg = self._features_asg[selected_pts_mask].repeat(N, 1)
+        new_rough = self._roughness[selected_pts_mask].repeat(N, 1)
         new_normal = self._normal[selected_pts_mask].repeat(N, 1)
         new_normal2 = self._normal2[selected_pts_mask].repeat(N, 1)
 
         self.densification_postfix(new_xyz, new_features_dc, new_features_rest, new_opacity, new_scaling, new_rotation,
-                                   new_feature_asg, new_normal, new_normal2)
+                                   new_feature_asg, new_normal, new_normal2, new_rough)
 
         prune_filter = torch.cat(
             (selected_pts_mask, torch.zeros(N * selected_pts_mask.sum(), device="cuda", dtype=bool)))
@@ -460,11 +481,12 @@ class GaussianModel:
         new_scaling = self._scaling[selected_pts_mask]
         new_rotation = self._rotation[selected_pts_mask]
         new_feature_asg = self._features_asg[selected_pts_mask]
+        new_rough = self._roughness[selected_pts_mask]
         new_normal = self._normal[selected_pts_mask]
         new_normal2 = self._normal2[selected_pts_mask]
 
         self.densification_postfix(new_xyz, new_features_dc, new_features_rest, new_opacities, new_scaling,
-                                   new_rotation, new_feature_asg, new_normal, new_normal2)
+                                   new_rotation, new_feature_asg, new_normal, new_normal2, new_rough)
 
     def densify_and_prune(self, max_grad, min_opacity, extent, max_screen_size):
         grads = self.xyz_gradient_accum / self.denom
