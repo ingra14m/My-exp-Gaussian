@@ -83,10 +83,30 @@ class RenderingEquationEncoding(torch.nn.Module):
         la = F.softplus(la - 1)
         mu = F.softplus(mu - 1)
         exp_input = -la * (self.omega_la * omega_o[:, None, None]).sum(dim=-1, keepdim=True).pow(2) - mu * (
-                    self.omega_mu * omega_o[:, None, None]).sum(dim=-1, keepdim=True).pow(2)
+                self.omega_mu * omega_o[:, None, None]).sum(dim=-1, keepdim=True).pow(2)
         out = a * Smooth * torch.exp(exp_input)
 
         return out
+
+
+class SGEnvmap(torch.nn.Module):
+    def __init__(self, numLgtSGs=32, device='cuda'):
+        super(SGEnvmap, self).__init__()
+
+        self.lgtSGs = nn.Parameter(torch.randn(numLgtSGs, 7).cuda())  # lobe + lambda + mu
+        self.lgtSGs.data[..., 3:4] *= 100.
+        self.lgtSGs.data[..., -3:] = 0.
+        self.lgtSGs.requires_grad = True
+
+    def forward(self, viewdirs):
+        lgtSGLobes = self.lgtSGs[..., :3] / (torch.norm(self.lgtSGs[..., :3], dim=-1, keepdim=True) + 1e-7)
+        lgtSGLambdas = torch.abs(self.lgtSGs[..., 3:4])  # sharpness
+        lgtSGMus = torch.abs(self.lgtSGs[..., -3:])  # positive values
+        pred_radiance = lgtSGMus[None] * torch.exp(
+            lgtSGLambdas[None] * (torch.sum(viewdirs[:, None, :] * lgtSGLobes[None], dim=-1, keepdim=True) - 1.))
+        reflection = torch.sum(pred_radiance, dim=1)
+
+        return reflection
 
 
 class ASGRender(torch.nn.Module):
@@ -135,7 +155,7 @@ class ASGRender(torch.nn.Module):
         # rgb = torch.sum(color_feature, dim=1)
         # rgb = torch.sigmoid(rgb)
 
-        return rgb
+        return rgb, reflect_dir
 
 
 class SpecularNetwork(nn.Module):
@@ -163,6 +183,7 @@ class SpecularNetwork(nn.Module):
         #         nn.Linear(W, W) if i not in self.skips else nn.Linear(W + self.input_ch, W)
         #         for i in range(D - 1)]
         # )
+        # self.env_module = SGEnvmap()
 
         self.gaussian_feature = nn.Linear(self.asg_feature, self.asg_hidden)
 
@@ -180,6 +201,7 @@ class SpecularNetwork(nn.Module):
         #         h = torch.cat([x_emb, h], -1)
 
         feature = self.gaussian_feature(x)
-        spec = self.render_module(x, view, feature, normal)
+        spec, reflect_dir = self.render_module(x, view, feature, normal)
+        # reflect = self.env_module(reflect_dir)
 
         return spec
