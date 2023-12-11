@@ -204,3 +204,19 @@ def flip_align_view(normal, viewdir):
     non_flip = dotprod >= 0  # (N, 1)
     normal_flipped = normal * torch.where(non_flip, 1, -1)  # (N, 3)
     return normal_flipped, non_flip
+
+
+def linear_to_srgb(linear):
+    if isinstance(linear, torch.Tensor):
+        """Assumes `linear` is in [0, 1], see https://en.wikipedia.org/wiki/SRGB."""
+        eps = torch.finfo(torch.float32).eps
+        srgb0 = 323 / 25 * linear
+        srgb1 = (211 * torch.clamp(linear, min=eps) ** (5 / 12) - 11) / 200
+        return torch.where(linear <= 0.0031308, srgb0, srgb1)
+    elif isinstance(linear, np.ndarray):
+        eps = np.finfo(np.float32).eps
+        srgb0 = 323 / 25 * linear
+        srgb1 = (211 * np.maximum(eps, linear) ** (5 / 12) - 11) / 200
+        return np.where(linear <= 0.0031308, srgb0, srgb1)
+    else:
+        raise NotImplementedError

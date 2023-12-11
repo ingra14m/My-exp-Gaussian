@@ -12,11 +12,11 @@
 import os
 import torch
 from random import randint
-from utils.loss_utils import l1_loss, ssim, kl_divergence
+from utils.loss_utils import l1_loss, ssim, kl_divergence, l2_loss
 from gaussian_renderer import render, network_gui
 import sys
 from scene import Scene, GaussianModel, SpecularModel
-from utils.general_utils import safe_state, get_linear_noise_func
+from utils.general_utils import safe_state, get_linear_noise_func, linear_to_srgb
 import uuid
 from tqdm import tqdm
 from utils.image_utils import psnr
@@ -84,11 +84,13 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations):
             viewpoint_cam.load2device()
 
         N = gaussians.get_xyz.shape[0]
+        normal_loss = 0
         if iteration > 3000:
             dir_pp = (gaussians.get_xyz - viewpoint_cam.camera_center.repeat(gaussians.get_features.shape[0], 1))
             dir_pp_normalized = dir_pp / dir_pp.norm(dim=1, keepdim=True)
             normal, normal_delta = gaussians.get_normal(dir_pp_normalized=dir_pp_normalized, return_delta=True)
             mlp_color = specular_mlp.step(gaussians.get_asg_features, dir_pp_normalized, normal)
+            normal_loss = l2_loss(normal_delta, torch.zeros_like(normal_delta))
         else:
             mlp_color = 0
 
@@ -103,7 +105,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations):
         # Loss
         gt_image = viewpoint_cam.original_image.cuda()
         Ll1 = l1_loss(image, gt_image)
-        loss = (1.0 - opt.lambda_dssim) * Ll1 + opt.lambda_dssim * (1.0 - ssim(image, gt_image))
+        loss = (1.0 - opt.lambda_dssim) * Ll1 + (1.0 - ssim(image, gt_image)) + normal_loss
         # if iteration > 3000:
         #     residual_color = render(viewpoint_cam, gaussians, pipe, background, mlp_color, hybrid=False)["render"]
         #     reflect_loss = l1_loss(gt_image - image, residual_color)
