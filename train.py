@@ -105,7 +105,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations):
         # Loss
         gt_image = viewpoint_cam.original_image.cuda()
         Ll1 = l1_loss(image, gt_image)
-        loss = (1.0 - opt.lambda_dssim) * Ll1 + (1.0 - ssim(image, gt_image)) + normal_loss
+        loss = (1.0 - opt.lambda_dssim) * Ll1 + opt.lambda_dssim * (1.0 - ssim(image, gt_image)) + normal_loss
         # if iteration > 3000:
         #     residual_color = render(viewpoint_cam, gaussians, pipe, background, mlp_color, hybrid=False)["render"]
         #     reflect_loss = l1_loss(gt_image - image, residual_color)
