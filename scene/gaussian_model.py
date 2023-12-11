@@ -47,6 +47,8 @@ class GaussianModel:
         self._normal = torch.empty(0)
         self._normal2 = torch.empty(0)
         self._roughness = torch.empty(0)
+        self._albedo = torch.empty(0)
+        self._metallic = torch.empty(0)
 
         self.optimizer = None
 
@@ -67,6 +69,14 @@ class GaussianModel:
     @property
     def get_roughness(self):
         return self._roughness
+
+    @property
+    def get_albedo(self):
+        return self._albedo
+
+    @property
+    def get_metallic(self):
+        return self._metallic
 
     @property
     def get_scaling(self):
@@ -125,6 +135,8 @@ class GaussianModel:
         features[:, 3:, 1:] = 0.0
         asg_features = torch.zeros((fused_color.shape[0], self.max_asg_degree)).float().cuda()
         roughness = torch.zeros((fused_color.shape[0], 1)).float().cuda()
+        albedo = torch.zeros((fused_color.shape[0], 3)).float().cuda()
+        metallic = torch.zeros((fused_color.shape[0], 1)).float().cuda()
 
         print("Number of points at initialisation : ", fused_point_cloud.shape[0])
 
@@ -143,6 +155,8 @@ class GaussianModel:
         self._opacity = nn.Parameter(opacities.requires_grad_(True))
         self._features_asg = nn.Parameter(asg_features.requires_grad_(True))
         self._roughness = nn.Parameter(roughness.requires_grad_(True))
+        self._albedo = nn.Parameter(albedo.requires_grad_(True))
+        self._metallic = nn.Parameter(metallic.requires_grad_(True))
         self.max_radii2D = torch.zeros((self.get_xyz.shape[0]), device="cuda")
 
         normals = np.zeros_like(np.asarray(pcd.points, dtype=np.float32))
@@ -166,7 +180,9 @@ class GaussianModel:
             {'params': [self._scaling], 'lr': training_args.scaling_lr * self.spatial_lr_scale, "name": "scaling"},
             {'params': [self._rotation], 'lr': training_args.rotation_lr, "name": "rotation"},
             {'params': [self._features_asg], 'lr': training_args.feature_lr, "name": "f_asg"},
-            {'params': [self._roughness], 'lr': training_args.feature_lr, "name": "roughness"}
+            {'params': [self._roughness], 'lr': training_args.feature_lr, "name": "roughness"},
+            {'params': [self._albedo], 'lr': training_args.feature_lr, "name": "albedo"},
+            {'params': [self._metallic], 'lr': training_args.feature_lr, "name": "metallic"},
         ]
 
         l.extend([
@@ -222,6 +238,10 @@ class GaussianModel:
             l.append('f_asg_{}'.format(i))
         for i in range(self._roughness.shape[1]):
             l.append('roughness_{}'.format(i))
+        for i in range(self._albedo.shape[1]):
+            l.append('albedo_{}'.format(i))
+        for i in range(self._metallic.shape[1]):
+            l.append('metallic_{}'.format(i))
         return l
 
     def save_ply(self, path):
@@ -238,11 +258,15 @@ class GaussianModel:
         rotation = self._rotation.detach().cpu().numpy()
         f_asg = self._features_asg.detach().cpu().numpy()
         roughness = self._roughness.detach().cpu().numpy()
+        albedo = self._albedo.detach().cpu().numpy()
+        metallic = self._metallic.detach().cpu().numpy()
 
         dtype_full = [(attribute, 'f4') for attribute in self.construct_list_of_attributes()]
 
         elements = np.empty(xyz.shape[0], dtype=dtype_full)
-        attributes = np.concatenate((xyz, normals, normals2, f_dc, f_rest, opacities, scale, rotation, f_asg, roughness), axis=1)
+        attributes = np.concatenate(
+            (xyz, normals, normals2, f_dc, f_rest, opacities, scale, rotation, f_asg, roughness, albedo, metallic),
+            axis=1)
         elements[:] = list(map(tuple, attributes))
         el = PlyElement.describe(elements, 'vertex')
         PlyData([el]).write(path)
@@ -294,6 +318,16 @@ class GaussianModel:
         for idx, attr_name in enumerate(rough_names):
             roughness[:, idx] = np.asarray(plydata.elements[0][attr_name])
 
+        albedo_names = [p.name for p in plydata.elements[0].properties if p.name.startswith("albedo_")]
+        albedo = np.zeros((xyz.shape[0], len(albedo_names)))
+        for idx, attr_name in enumerate(albedo_names):
+            albedo[:, idx] = np.asarray(plydata.elements[0][attr_name])
+
+        metallic_names = [p.name for p in plydata.elements[0].properties if p.name.startswith("metallic_")]
+        metallic = np.zeros((xyz.shape[0], len(metallic_names)))
+        for idx, attr_name in enumerate(metallic_names):
+            metallic[:, idx] = np.asarray(plydata.elements[0][attr_name])
+
         # normal_names = [p.name for p in plydata.elements[0].properties if p.name.startswith("normal_")]
         # normal = np.zeros((xyz.shape[0], len(normal_names)))
         # for idx, attr_name in enumerate(normal_names):
@@ -323,6 +357,8 @@ class GaussianModel:
         self._rotation = nn.Parameter(torch.tensor(rots, dtype=torch.float, device="cuda").requires_grad_(True))
         self._features_asg = nn.Parameter(torch.tensor(f_asgs, dtype=torch.float, device="cuda").requires_grad_(True))
         self._roughness = nn.Parameter(torch.tensor(roughness, dtype=torch.float, device="cuda").requires_grad_(True))
+        self._albedo = nn.Parameter(torch.tensor(albedo, dtype=torch.float, device="cuda").requires_grad_(True))
+        self._metallic = nn.Parameter(torch.tensor(metallic, dtype=torch.float, device="cuda").requires_grad_(True))
         self._normal = nn.Parameter(torch.tensor(normal, dtype=torch.float, device="cuda").requires_grad_(True))
         self._normal2 = nn.Parameter(torch.tensor(normal2, dtype=torch.float, device="cuda").requires_grad_(True))
         self.active_sh_degree = self.max_sh_degree
@@ -372,6 +408,8 @@ class GaussianModel:
         self._rotation = optimizable_tensors["rotation"]
         self._features_asg = optimizable_tensors["f_asg"]
         self._roughness = optimizable_tensors["roughness"]
+        self._albedo = optimizable_tensors["albedo"]
+        self._metallic = optimizable_tensors["metallic"]
         self._normal = optimizable_tensors["normal"]
         self._normal2 = optimizable_tensors["normal2"]
 
@@ -407,7 +445,8 @@ class GaussianModel:
         return optimizable_tensors
 
     def densification_postfix(self, new_xyz, new_features_dc, new_features_rest, new_opacities, new_scaling,
-                              new_rotation, new_feature_asg, new_normal, new_normal2, new_roughness):
+                              new_rotation, new_feature_asg, new_normal, new_normal2, new_roughness, new_albedo,
+                              new_metallic):
         d = {"xyz": new_xyz,
              "f_dc": new_features_dc,
              "f_rest": new_features_rest,
@@ -417,7 +456,9 @@ class GaussianModel:
              "f_asg": new_feature_asg,
              "normal": new_normal,
              "normal2": new_normal2,
-             "roughness": new_roughness}
+             "roughness": new_roughness,
+             "albedo": new_albedo,
+             "metallic": new_metallic}
 
         optimizable_tensors = self.cat_tensors_to_optimizer(d)
         self._xyz = optimizable_tensors["xyz"]
@@ -428,6 +469,8 @@ class GaussianModel:
         self._rotation = optimizable_tensors["rotation"]
         self._features_asg = optimizable_tensors["f_asg"]
         self._roughness = optimizable_tensors["roughness"]
+        self._albedo = optimizable_tensors["albedo"]
+        self._metallic = optimizable_tensors["metallic"]
         self._normal = optimizable_tensors["normal"]
         self._normal2 = optimizable_tensors["normal2"]
 
@@ -457,11 +500,13 @@ class GaussianModel:
         new_opacity = self._opacity[selected_pts_mask].repeat(N, 1)
         new_feature_asg = self._features_asg[selected_pts_mask].repeat(N, 1)
         new_rough = self._roughness[selected_pts_mask].repeat(N, 1)
+        new_albedo = self._albedo[selected_pts_mask].repeat(N, 1)
+        new_metallic = self._metallic[selected_pts_mask].repeat(N, 1)
         new_normal = self._normal[selected_pts_mask].repeat(N, 1)
         new_normal2 = self._normal2[selected_pts_mask].repeat(N, 1)
 
         self.densification_postfix(new_xyz, new_features_dc, new_features_rest, new_opacity, new_scaling, new_rotation,
-                                   new_feature_asg, new_normal, new_normal2, new_rough)
+                                   new_feature_asg, new_normal, new_normal2, new_rough, new_albedo, new_metallic)
 
         prune_filter = torch.cat(
             (selected_pts_mask, torch.zeros(N * selected_pts_mask.sum(), device="cuda", dtype=bool)))
@@ -482,11 +527,14 @@ class GaussianModel:
         new_rotation = self._rotation[selected_pts_mask]
         new_feature_asg = self._features_asg[selected_pts_mask]
         new_rough = self._roughness[selected_pts_mask]
+        new_albedo = self._albedo[selected_pts_mask]
+        new_metallic = self._metallic[selected_pts_mask]
         new_normal = self._normal[selected_pts_mask]
         new_normal2 = self._normal2[selected_pts_mask]
 
         self.densification_postfix(new_xyz, new_features_dc, new_features_rest, new_opacities, new_scaling,
-                                   new_rotation, new_feature_asg, new_normal, new_normal2, new_rough)
+                                   new_rotation, new_feature_asg, new_normal, new_normal2, new_rough, new_albedo,
+                                   new_metallic)
 
     def densify_and_prune(self, max_grad, min_opacity, extent, max_screen_size):
         grads = self.xyz_gradient_accum / self.denom
