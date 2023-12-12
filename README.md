@@ -1,43 +1,10 @@
 # Specular-Gaussians
 
-This repository is merely an attempt to address the inability of 3D-GS to model specular accurately. I found that even in scenes like Lego, official 3D-GS struggles to model correct specular part. Therefore, I conducted some exploration into its modeling. 
+It should be noted that this is **not an implementation of a paper**. The main thing I did was replace SH with [ASG](https://cg.cs.tsinghua.edu.cn/people/~kun/asg/), which allows 3D Gaussians to model more complex highlights. But the reflexes still need to be improved. But even so, **Specular-Gaussians** has become the SOTA 3D-Gaussians-based method for NeRF scenes.
+
+![Comparison](assets/teaser.png)
 
 
-
-I consider Spherical Harmonics (SH) as a form of low-frequency filter. Naturally, SH generates low-frequency signals, making it less suitable for modeling high-frequency specular. As a result, I segmented the signal using SH to model the low-frequency components and **employed Multi-Layer Perceptrons (MLP) for modeling the high-frequency components**. The results can be observed in the [Results](#Results).
-
-
-
-## Run
-
-### Environment
-
-I have made some extensions to the official [diff-gaussian-rasterization](), remember to clone the modified rasterization pipeline from [my-repo](https://github.com/ingra14m/depth-diff-gaussian-rasterization)
-
-```shell
-git clone https://github.com/ingra14m/Specular-Gaussians --recursive
-cd Specular-Gaussians
-
-conda env create --file environment.yml
-conda activate gaussian_env
-pip install imageio==2.27.0
-pip install opencv-python
-pip install imageio-ffmpeg
-```
-
-
-
-
-
-## Results
-
-**Rendering**
-
-![Comparison](assets/Comparison.png)
-
-**Diffuse and Specular**
-
-![Decomposition](assets/Decomposition.png)
 
 
 
@@ -66,7 +33,7 @@ If you find this implementation helpful, please consider to cite:
   author={Ziyi, Yang},
   publisher = {GitHub},
   journal = {GitHub repository},
-  howpublished={\url{https://github.com/ingra14m/Specular-Gaussians/}},
+  howpublished={\url{https://github.com/ingra14m/Specular-Gaussians}},
   year={2023}
 }
 ```
