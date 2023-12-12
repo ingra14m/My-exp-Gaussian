@@ -1,6 +1,6 @@
 # Specular-Gaussians
 
-It should be noted that this is **not an implementation of a paper**. The main thing I did was replace SH with [ASG](https://cg.cs.tsinghua.edu.cn/people/~kun/asg/), which allows 3D Gaussians to model more complex highlights. But the reflexes still need to be improved. But even so, **Specular-Gaussians** has become the SOTA 3D-Gaussians-based method for NeRF scenes.
+It should be noted that this is **not an implementation of a paper**. The main thing I did was replace SH with [ASG](https://cg.cs.tsinghua.edu.cn/people/~kun/asg/), which allows 3D Gaussians to model more complex highlights. But the reflection still needs to be improved. But even so, **Specular-Gaussians** has become the SOTA 3D-Gaussians-based method for NeRF scenes. The reason why I release the code is that I think adapting 3D-GS on the basis of [nrff](https://github.com/imkanghan/nrff) and [NeuRBF](https://github.com/oppo-us-research/NeuRBF) is not enough to publish a truly useful paper.
 
 ![Comparison](assets/teaser.png)
 
