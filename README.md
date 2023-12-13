@@ -57,6 +57,12 @@ We demonstrated on the Nex dataset that our method can model anisotropic specula
 
 
 
+## Acknowledgment
+
+I sincerely thank the authors of the following works, as their works have been referenced in my released codes: [nrff](https://github.com/imkanghan/nrff), [NeuRBF](https://github.com/oppo-us-research/NeuRBF), [K-Planes](https://github.com/sarafridov/K-Planes), [GaussianShader](https://github.com/Asparagus15/GaussianShader), [Scaffold-GS](https://city-super.github.io/scaffold-gs/), [Nex](https://nex-mpi.github.io/), [3D-GS](https://repo-sam.inria.fr/fungraph/3d-gaussian-splatting/).
+
+
+
 ## BibTex
 
 Thanks to the authors of [3D Gaussians](https://repo-sam.inria.fr/fungraph/3d-gaussian-splatting/) for their excellent code, please consider cite this repository:
