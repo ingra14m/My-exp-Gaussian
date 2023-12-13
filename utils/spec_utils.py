@@ -6,7 +6,7 @@ from utils.rigid_utils import exp_se3
 from utils.quaternion_utils import init_predefined_omega
 from utils.general_utils import linear_to_srgb
 from utils.ref_utils import generate_ide_fn
-import nvdiffrast.torch as dr
+# import nvdiffrast.torch as dr
 
 
 def get_embedder(multires, i=1):
