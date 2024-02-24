@@ -1,6 +1,6 @@
 # My-exp-Gaussian
 
-It should be noted that this is **not an implementation of a paper**.
+It should be noted that this is **not an implementation of a paper**. It was an early attempt to model specular highlights with 3D-GS. The official code together with the final paper will be released in another repo. Please stay tuned.
 
 ![teaser](assets/teaser.png)
 
