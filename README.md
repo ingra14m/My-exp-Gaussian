@@ -6,6 +6,7 @@ It should be noted that this is **not an implementation of a paper**. It was an 
 
 ## Update
 
+- 24/3/26 The final code has been released in [Specular-Gaussians](https://github.com/ingra14m/Specular-Gaussians).
 - 24/1/26 Hi, there! Thanks for the stars for all the people! Everyone's enthusiasm has made me realize that this is a meaningful work. It is with everyone's encouragement that I have completed a paper based on this repository (with a lot of improvements), which will help everyone understand why we can achieve high-quality specular highlight modeling with 3D-GS. Please stay tuned.
 - I removed the normal. The normal would improve metrics, but its quality is so poor that it can't truly be called a normal. I have placed the model that includes the normal in the [normal](https://github.com/ingra14m/Specular-Gaussians/tree/normal) branch. After removing the normal, both training speed and rendering FPS will improve a lot.
 
